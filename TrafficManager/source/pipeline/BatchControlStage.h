@@ -5,7 +5,6 @@
 
 #include "carla/client/Client.h"
 #include "carla/Logging.h"
-#include "carla/rpc/ActorId.h"
 #include "carla/rpc/Command.h"
 #include "carla/rpc/VehicleControl.h"
 
@@ -30,7 +29,7 @@ namespace traffic_manager {
     /// Pointer to messenger from MotionPlanner
     std::shared_ptr<PlannerToControlMessenger> messenger;
     /// Variable used to measure system throughput
-    uint frame_count = 0;
+    int frame_count = 0;
     /// Reference to carla client connection object
     carla::client::Client &carla_client;
     /// Array to hold command batch
@@ -43,8 +42,8 @@ namespace traffic_manager {
     BatchControlStage(
         std::shared_ptr<PlannerToControlMessenger> messenger,
         carla::client::Client &carla_client,
-        uint number_of_vehicles,
-        uint pool_size);
+        int number_of_vehicles,
+        int pool_size);
     ~BatchControlStage();
 
     void DataReceiver() override;

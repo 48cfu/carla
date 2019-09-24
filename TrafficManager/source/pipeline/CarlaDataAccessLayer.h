@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include "carla/client/Map.h"
@@ -19,7 +20,7 @@ namespace traffic_manager {
     public:
 
       CarlaDataAccessLayer(carla::SharedPtr<carla::client::Map> world_map);
-
+      
       ~CarlaDataAccessLayer();
 
       /// Retrieves list of topology segments from the simulator
