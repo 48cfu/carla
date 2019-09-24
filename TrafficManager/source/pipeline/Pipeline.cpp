@@ -2,10 +2,10 @@
 
 namespace traffic_manager {
 
-  namespace PipelineConstants {
-    int MINIMUM_CORE_COUNT = 4;
-    int MINIMUM_NUMBER_OF_VEHICLES = 100;
-  }
+namespace PipelineConstants {
+  uint MINIMUM_CORE_COUNT = 4u;
+  uint MINIMUM_NUMBER_OF_VEHICLES = 100u;
+}
   using namespace PipelineConstants;
 
   // Pick a random element from @a range.
@@ -17,7 +17,7 @@ namespace traffic_manager {
     return range[dist(std::forward<RNG>(generator))];
   }
 
-  int read_core_count() {
+  uint read_core_count() {
 
     auto core_count = std::thread::hardware_concurrency();
     // Assuming quad core if core count not available
@@ -27,8 +27,8 @@ namespace traffic_manager {
   std::vector<ActorPtr> spawn_traffic(
       cc::Client &client,
       cc::World &world,
-      int core_count,
-      int target_amount = 0) {
+      uint core_count,
+      uint target_amount = 0) {
 
     std::vector<ActorPtr> actor_list;
     auto world_map = world.GetMap();
@@ -40,8 +40,8 @@ namespace traffic_manager {
     auto blueprint_library = world.GetBlueprintLibrary()->Filter("vehicle.*");
     std::mt19937_64 rng((std::random_device())());
 
-    int number_of_vehicles;
-    if (target_amount <= 0) {
+    uint number_of_vehicles;
+    if (target_amount == 0u) {
       number_of_vehicles = MINIMUM_NUMBER_OF_VEHICLES;
     } else {
       number_of_vehicles = target_amount;
@@ -52,12 +52,12 @@ namespace traffic_manager {
       carla::log_info("Spawning vehicle at every spawn point\n");
       number_of_vehicles = spawn_points.size();
     }
-    
-    carla::log_info("Spawning "+ std::to_string(number_of_vehicles) +" vehicles\n");
+
+    carla::log_info("Spawning " + std::to_string(number_of_vehicles) + " vehicles\n");
 
     // Creating spawn batch command
     std::vector<cr::Command> batch_spawn_commands;
-    for (int i = 0; i < number_of_vehicles; ++i) {
+    for (auto i = 0u; i < number_of_vehicles; ++i) {
 
       auto spawn_point = spawn_points[i];
       auto blueprint = RandomChoice(*blueprint_library, rng);
@@ -92,7 +92,7 @@ namespace traffic_manager {
         auto iter = actor_attributes.begin();
         (iter != actor_attributes.end()) && !found_traffic_manager_vehicle;
         ++iter
-      ) {
+        ) {
         auto attribute = *iter;
         if (attribute.GetValue() == "traffic_manager") {
           found_traffic_manager_vehicle = true;
@@ -106,10 +106,10 @@ namespace traffic_manager {
     return actor_list;
   }
 
-  void destroy_traffic(std::vector<ActorPtr>& actor_list, cc::Client& client) {
+  void destroy_traffic(std::vector<ActorPtr> &actor_list, cc::Client &client) {
 
     std::vector<cr::Command> batch_spawn_commands;
-    for (auto& actor: actor_list) {
+    for (auto &actor: actor_list) {
       batch_spawn_commands.push_back(cr::Command::DestroyActor(actor->GetId()));
     }
     client.ApplyBatch(std::move(batch_spawn_commands));
@@ -126,7 +126,7 @@ namespace traffic_manager {
       cc::Client &client_connection,
       cc::World &world,
       cc::DebugHelper &debug_helper,
-      int pipeline_width)
+      uint pipeline_width)
     : longitudinal_PID_parameters(longitudinal_PID_parameters),
       longitudinal_highway_PID_parameters(longitudinal_highway_PID_parameters),
       lateral_PID_parameters(lateral_PID_parameters),

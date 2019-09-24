@@ -10,7 +10,8 @@
 
 namespace traffic_manager {
 
-  /// This class provides the information about the Traffic Lights at the junctions.
+  /// This class provides the information about the Traffic Lights at the
+  /// junctions.
   class TrafficLightStage : public PipelineStage {
 
   private:
@@ -34,15 +35,16 @@ namespace traffic_manager {
     TrafficLightStage(
         std::shared_ptr<LocalizationToTrafficLightMessenger> localization_messenger,
         std::shared_ptr<TrafficLightToPlannerMessenger> planner_messenger,
-        int number_of_vehicle,
-        int pool_size);
+        uint number_of_vehicle,
+        uint pool_size);
     ~TrafficLightStage();
 
     void DataReceiver() override;
 
-    void Action(const int start_index, const int end_index) override;
+    void Action(const uint start_index, const uint end_index) override;
 
     void DataSender() override;
 
   };
+
 }

@@ -2,27 +2,26 @@
 
 namespace traffic_manager {
 
-  namespace LocalizationConstants {
-    static const float WAYPOINT_TIME_HORIZON = 3.0;
-    static const float MINIMUM_HORIZON_LENGTH = 25.0;
-    static const float TARGET_WAYPOINT_TIME_HORIZON = 0.5;
-    static const float TARGET_WAYPOINT_HORIZON_LENGTH = 2.0;
-    static const int MINIMUM_JUNCTION_LOOK_AHEAD = 5;
-    static const float HIGHWAY_SPEED = 50 / 3.6;
-  }
+namespace LocalizationConstants {
+  static const float WAYPOINT_TIME_HORIZON = 3.0f;
+  static const float MINIMUM_HORIZON_LENGTH = 25.0f;
+  static const float TARGET_WAYPOINT_TIME_HORIZON = 0.5f;
+  static const float TARGET_WAYPOINT_HORIZON_LENGTH = 2.0f;
+  static const uint MINIMUM_JUNCTION_LOOK_AHEAD = 5u;
+  static const float HIGHWAY_SPEED = 50 / 3.6f;
+}
   using namespace LocalizationConstants;
 
   LocalizationStage::LocalizationStage(
       std::shared_ptr<LocalizationToPlannerMessenger> planner_messenger,
       std::shared_ptr<LocalizationToCollisionMessenger> collision_messenger,
       std::shared_ptr<LocalizationToTrafficLightMessenger> traffic_light_messenger,
-      int number_of_vehicles,
-      int pool_size,
-      std::vector<carla::SharedPtr<carla::client::Actor>> &actor_list,
+      uint number_of_vehicles,
+      uint pool_size,
+      std::vector<Actor> &actor_list,
       InMemoryMap &local_map,
-      carla::client::DebugHelper &debug_helper
-    ): 
-      planner_messenger(planner_messenger),
+      cc::DebugHelper &debug_helper)
+    : planner_messenger(planner_messenger),
       collision_messenger(collision_messenger),
       traffic_light_messenger(traffic_light_messenger),
       actor_list(actor_list),
@@ -53,12 +52,12 @@ namespace traffic_manager {
     traffic_light_messenger_state = traffic_light_messenger->GetState() - 1;
 
     // Seeding random divergence choices for every vehicle
-    for (int i = 0; i < number_of_vehicles; ++i) {
+    for (auto i = 0u; i < number_of_vehicles; ++i) {
       divergence_choice.push_back(rand());
     }
 
     // Connecting vehicle ids to their position index on data arrays
-    int index = 0;
+    auto index = 0u;
     for (auto &actor: actor_list) {
       vehicle_id_to_index.insert({actor->GetId(), index});
       ++index;
@@ -67,16 +66,17 @@ namespace traffic_manager {
 
   LocalizationStage::~LocalizationStage() {}
 
-  void LocalizationStage::Action(const int start_index, const int end_index) {
+  void LocalizationStage::Action(const uint start_index, const uint end_index) {
 
     // Selecting output frames based on selector keys
-    auto current_planner_frame = planner_frame_selector? planner_frame_a: planner_frame_b;
-    auto current_collision_frame = collision_frame_selector? collision_frame_a: collision_frame_b;
-    auto current_traffic_light_frame = traffic_light_frame_selector? traffic_light_frame_a: traffic_light_frame_b;
-    auto current_buffer_list = collision_frame_selector? buffer_list_a: buffer_list_b;
+    auto current_planner_frame = planner_frame_selector ? planner_frame_a : planner_frame_b;
+    auto current_collision_frame = collision_frame_selector ? collision_frame_a : collision_frame_b;
+    auto current_traffic_light_frame =
+        traffic_light_frame_selector ? traffic_light_frame_a : traffic_light_frame_b;
+    auto current_buffer_list = collision_frame_selector ? buffer_list_a : buffer_list_b;
 
     // Looping over arrays' partitions for current thread
-    for (int i = start_index; i <= end_index; ++i) {
+    for (auto i = start_index; i <= end_index; ++i) {
 
       auto vehicle = actor_list.at(i);
       auto actor_id = vehicle->GetId();
@@ -92,25 +92,21 @@ namespace traffic_manager {
       auto &copy_waypoint_buffer = current_buffer_list->at(i);
 
       // Sync buffer copies in case of lane change
-      if (
-        !waypoint_buffer.empty() && !copy_waypoint_buffer.empty()
-        &&
-        (
-          copy_waypoint_buffer.front()->GetWaypoint()->GetLaneId()
-          != waypoint_buffer.front()->GetWaypoint()->GetLaneId()
-          ||
-          copy_waypoint_buffer.front()->GetWaypoint()->GetSectionId()
-          != waypoint_buffer.front()->GetWaypoint()->GetSectionId()
-        )) {
+      if (!waypoint_buffer.empty() && !copy_waypoint_buffer.empty() &&
+          ((copy_waypoint_buffer.front()->GetWaypoint()->GetLaneId()
+          != waypoint_buffer.front()->GetWaypoint()->GetLaneId()) ||
+          (copy_waypoint_buffer.front()->GetWaypoint()->GetSectionId()
+          != waypoint_buffer.front()->GetWaypoint()->GetSectionId()))) {
+
         waypoint_buffer.clear();
         waypoint_buffer.assign(copy_waypoint_buffer.begin(), copy_waypoint_buffer.end());
       }
 
       // Purge passed waypoints
       if (!waypoint_buffer.empty()) {
-        auto dot_product = DeviationDotProduct(
-            vehicle,
-            waypoint_buffer.front()->GetLocation());
+
+        auto dot_product = DeviationDotProduct(vehicle, waypoint_buffer.front()->GetLocation());
+
         while (dot_product <= 0 && !waypoint_buffer.empty()) {
           waypoint_buffer.pop_front();
           if (!waypoint_buffer.empty()) {
@@ -162,9 +158,9 @@ namespace traffic_manager {
         auto way_front = waypoint_buffer.back();
         auto pre_selection_id = way_front->GetWaypoint()->GetId();
         auto next_waypoints = way_front->GetNextWaypoint();
-        auto selection_index = 0;
+        auto selection_index = 0u;
         if (next_waypoints.size() > 1) {
-          selection_index = (divergence_choice.at(i)*(1 + pre_selection_id)) % next_waypoints.size();
+          selection_index = (divergence_choice.at(i) * (1 + pre_selection_id)) % next_waypoints.size();
         }
 
         way_front = next_waypoints.at(selection_index);
@@ -188,10 +184,10 @@ namespace traffic_manager {
       // Filtering out false junctions on highways
       // On highways, if there is only one possible path and the section is
       // marked as intersection, ignore it
-      auto vehicle_reference = boost::static_pointer_cast<carla::client::Vehicle>(vehicle);
+      auto vehicle_reference = boost::static_pointer_cast<cc::Vehicle>(vehicle);
       auto speed_limit = vehicle_reference->GetSpeedLimit();
       int look_ahead_index = std::max(
-          static_cast<int>(std::floor(2 * vehicle_velocity)),
+          static_cast<uint>(std::floor(2 * vehicle_velocity)),
           MINIMUM_JUNCTION_LOOK_AHEAD);
 
       std::shared_ptr<SimpleWaypoint> look_ahead_point;
@@ -204,7 +200,7 @@ namespace traffic_manager {
       bool approaching_junction = false;
       if (look_ahead_point->CheckJunction() && !(waypoint_buffer.front()->CheckJunction())) {
         if (speed_limit > HIGHWAY_SPEED) {
-          for (int i = 0; i < look_ahead_index && !approaching_junction; ++i) {
+          for (auto i = 0u; i < look_ahead_index && !approaching_junction; ++i) {
             auto swp = waypoint_buffer.at(i);
             if (swp->GetNextWaypoint().size() > 1) {
               approaching_junction = true;
@@ -244,7 +240,7 @@ namespace traffic_manager {
 
     DataPacket<std::shared_ptr<LocalizationToPlannerFrame>> planner_data_packet = {
       planner_messenger_state,
-      planner_frame_selector? planner_frame_a: planner_frame_b
+      planner_frame_selector ? planner_frame_a : planner_frame_b
     };
     planner_frame_selector = !planner_frame_selector;
     planner_messenger_state = planner_messenger->SendData(planner_data_packet);
@@ -255,7 +251,7 @@ namespace traffic_manager {
     if (collision_messenger_current_state != collision_messenger_state) {
       DataPacket<std::shared_ptr<LocalizationToCollisionFrame>> collision_data_packet = {
         collision_messenger_state,
-        collision_frame_selector? collision_frame_a: collision_frame_b
+        collision_frame_selector ? collision_frame_a : collision_frame_b
       };
 
       collision_messenger_state = collision_messenger->SendData(collision_data_packet);
@@ -268,7 +264,7 @@ namespace traffic_manager {
     if (traffic_light_messenger_current_state != traffic_light_messenger_state) {
       DataPacket<std::shared_ptr<LocalizationToTrafficLightFrame>> traffic_light_data_packet = {
         traffic_light_messenger_state,
-        traffic_light_frame_selector? traffic_light_frame_a: traffic_light_frame_b
+        traffic_light_frame_selector ? traffic_light_frame_a : traffic_light_frame_b
       };
 
       traffic_light_messenger_state = traffic_light_messenger->SendData(traffic_light_data_packet);
@@ -279,7 +275,7 @@ namespace traffic_manager {
   void LocalizationStage::DrawBuffer(Buffer &buffer) {
 
     for (int i = 0; i < buffer.size() && i < 5; ++i) {
-      debug_helper.DrawPoint(buffer.at(i)->GetLocation(), 0.1f, {255U, 0U, 0U}, 0.5f);
+      debug_helper.DrawPoint(buffer.at(i)->GetLocation(), 0.1f, {255u, 0u, 0u}, 0.5f);
     }
   }
 }

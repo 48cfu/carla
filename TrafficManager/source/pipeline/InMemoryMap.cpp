@@ -2,13 +2,13 @@
 
 namespace traffic_manager {
 
-  namespace MapConstants {
-    // Very important that this is less than 10^-4
-    static const float ZERO_LENGTH = 0.0001;
-    static const float INFINITE_DISTANCE = std::numeric_limits<float>::max();
-    static const int LANE_CHANGE_LOOK_AHEAD = 5;
-    static const float LANE_CHANGE_ANGULAR_THRESHOLD = 0.5;   // cos(angle)
-  }
+namespace MapConstants {
+  // Very important that this is less than 10^-4
+  static const float ZERO_LENGTH = 0.0001f;
+  static const float INFINITE_DISTANCE = std::numeric_limits<float>::max();
+  static const uint LANE_CHANGE_LOOK_AHEAD = 5u;
+  static const float LANE_CHANGE_ANGULAR_THRESHOLD = 0.5f;     // cos(angle)
+}
   using namespace MapConstants;
 
   InMemoryMap::InMemoryMap(TopologyList topology) {
@@ -64,7 +64,7 @@ namespace traffic_manager {
     }
 
     // Linking segments
-    int i = 0, j = 0;
+    uint i = 0, j = 0;
     for (auto end_point : exit_node_list) {
       for (auto begin_point : entry_node_list) {
         if (end_point->Distance(begin_point->GetLocation()) < ZERO_LENGTH and i != j) {
@@ -93,7 +93,7 @@ namespace traffic_manager {
           }
           ++j;
         }
-        auto end_point_vector = end_point->GetVector();
+        auto end_point_vector = end_point->GetForwardVector();
         auto relative_vector = closest_connection->GetLocation() - end_point->GetLocation();
         relative_vector = relative_vector.MakeUnitVector();
         auto relative_dot = carla::geom::Math::Dot(end_point_vector, relative_vector);
@@ -171,32 +171,29 @@ namespace traffic_manager {
   }
 
   void InMemoryMap::LinkLaneChangePoint(
-    SimpleWaypointPtr reference_waypoint,
-    WaypointPtr neighbor_waypoint,
-    int side
-  ) {
+      SimpleWaypointPtr reference_waypoint,
+      WaypointPtr neighbor_waypoint,
+      int side) {
 
     if (neighbor_waypoint != nullptr) {
       auto neighbour_road_id = neighbor_waypoint->GetRoadId();
       auto neighbour_section_id = neighbor_waypoint->GetSectionId();
       auto neighbour_lane_id = neighbor_waypoint->GetLaneId();
 
-      // Find waypoint samples in dense topology corresponding to the 
+      // Find waypoint samples in dense topology corresponding to the
       // geo ids of the neighbor waypoint found using carla's server call
-      if (
-        road_to_waypoint.find(neighbour_road_id) != road_to_waypoint.end()
-        &&
-        road_to_waypoint[neighbour_road_id].find(neighbour_section_id)
-        != road_to_waypoint[neighbour_road_id].end()
-        &&
-        road_to_waypoint[neighbour_road_id][neighbour_section_id].find(neighbour_lane_id)
-        != road_to_waypoint[neighbour_road_id][neighbour_section_id].end()) {
+      if (road_to_waypoint.find(neighbour_road_id) != road_to_waypoint.end() &&
+          (road_to_waypoint[neighbour_road_id].find(neighbour_section_id)
+          != road_to_waypoint[neighbour_road_id].end()) &&
+          (road_to_waypoint[neighbour_road_id][neighbour_section_id].find(neighbour_lane_id)
+          != road_to_waypoint[neighbour_road_id][neighbour_section_id].end())) {
 
-        std::vector<SimpleWaypointPtr> waypoints_to_left
-          = road_to_waypoint[neighbour_road_id][neighbour_section_id][neighbour_lane_id];
+        std::vector<SimpleWaypointPtr> waypoints_to_left =
+            road_to_waypoint[neighbour_road_id][neighbour_section_id][neighbour_lane_id];
 
         // Find the nearest sample to the neighbour waypoint to be used as a
-        // local cache representative to be linked for indicating lane change connection
+        // local cache representative to be linked for indicating lane change
+        // connection
         if (waypoints_to_left.size() > 0) {
           auto nearest_waypoint = waypoints_to_left[0];
           auto smallest_left_distance = INFINITE_DISTANCE;
